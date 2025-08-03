@@ -2,44 +2,45 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import datetime
 import json
+import os
 
-# Formato de fecha para URL y para mostrar
+# Fecha de hoy en dos formatos: para URL y para mostrar
 hoy = datetime.now()
-fecha_url = hoy.strftime('%Y/%m/%d')  # Para construir la URL
-fecha_legible = hoy.strftime('%d de %B de %Y')  # Para mostrar
+fecha_url = hoy.strftime('%Y/%m/%d')
+fecha_legible = hoy.strftime('%d de %B de %Y')
 
-# URL del evangelio del día
+# URL de Vatican News con formato de fecha
 url = f"https://www.vaticannews.va/es/evangelio-de-hoy/{fecha_url}.html"
 
-# Encabezados para simular un navegador real (evita bloqueos por bot)
+# Encabezado para simular un navegador real
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
 }
 
-try:
-    # Obtener contenido de la página
-    resp = requests.get(url, headers=headers, timeout=10)
-    resp.raise_for_status()
+# Asegurar que el JSON se guarda en la raíz del proyecto
+ruta_salida = os.path.join(os.path.dirname(__file__), "..", "liturgia.json")
 
+try:
+    # Obtener la página
+    resp = requests.get(url, headers=headers, timeout=10)
+    resp.raise_for_status()  # Si no responde 200, lanza error
+
+    # Analizar HTML
     soup = BeautifulSoup(resp.content, "html.parser")
 
-    # EXTRAER EL TÍTULO
-    titulo_element = soup.select_one("div.vv-article__content h1")
+    # Extraer título del evangelio
+    titulo_element = soup.find("h1", class_="vv-article__title")
     titulo = titulo_element.get_text(strip=True) if titulo_element else "Título no disponible"
 
-    # EXTRAER EL CUERPO DEL EVANGELIO
-    cuerpo_element = soup.select_one("div.vv-article__body")
+    # Extraer cuerpo del evangelio
+    cuerpo_element = soup.find("div", class_="vv-article__body")
     cuerpo = cuerpo_element.get_text("\n", strip=True) if cuerpo_element else "Contenido no disponible"
 
-    # EXTRAER PALABRA DEL PAPA (si está)
-    palabra_papa = "No disponible hoy."
-    for h2 in soup.select("div.vv-article__body h2"):
-        if "Palabra del Papa" in h2.get_text(strip=True):
-            parrafo = h2.find_next_sibling("p")
-            palabra_papa = parrafo.get_text(strip=True) if parrafo else "No disponible hoy."
-            break
+    # Extraer palabra del Papa (si existe)
+    papa_seccion = soup.find("section", {"id": "word-of-the-pope"})
+    palabra_papa = papa_seccion.get_text("\n", strip=True) if papa_seccion else "No disponible hoy."
 
-    # Crear diccionario final
+    # Estructura del JSON
     liturgia = {
         "fecha": fecha_legible,
         "evangelio_titulo": titulo,
@@ -47,14 +48,14 @@ try:
         "palabra_del_papa": palabra_papa
     }
 
-    # Escribir archivo JSON
-    with open("liturgia.json", "w", encoding="utf-8") as f:
+    # Guardar JSON en la raíz
+    with open(ruta_salida, "w", encoding="utf-8") as f:
         json.dump(liturgia, f, ensure_ascii=False, indent=2)
 
 except Exception as e:
     print(f"❌ Error al obtener la liturgia: {str(e)}")
-    # Crear JSON de error
-    with open("liturgia.json", "w", encoding="utf-8") as f:
+    # Guardar archivo de error
+    with open(ruta_salida, "w", encoding="utf-8") as f:
         json.dump({
             "fecha": fecha_legible,
             "error": str(e),
