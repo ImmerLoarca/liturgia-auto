@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Liturgia del Día</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="liturgy-container">
+    <div class="liturgy-header">
+      <h1 class="liturgy-title">Liturgia del Día</h1>
+      <p class="liturgy-subtitle">Lecturas y palabras del Papa</p>
+      <div class="date-badge" id="dateBadge">Cargando...</div>
+    </div>
+    <div id="loading" class="loading">
+      <div class="spinner"></div>
+      <div>Cargando liturgia del día...</div>
+    </div>
+    <div id="errorNotice" class="error-notice" style="display: none;">
+      <strong>Información:</strong> No se pudo conectar con los datos. Revisa el archivo JSON.
+    </div>
+    <div id="content" style="display: none;"></div>
+  </div>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      fetch('liturgia.json')
+        .then(response => {
+          if (!response.ok) throw new Error("No se pudo cargar el archivo.");
+          return response.json();
+        })
+        .then(data => {
+          document.getElementById("dateBadge").textContent = data.fecha;
+          let html = `
+            <div class="content-section">
+              <div class="section-title">${data.evangelio_titulo}</div>
+              <div class="reading-text">${data.evangelio_contenido.replace(/\n/g, "<br>")}</div>
+            </div>
+            <div class="content-section">
+              <div class="section-title">Palabra del Papa</div>
+              <div class="reading-text">${data.palabra_del_papa.replace(/\n/g, "<br>")}</div>
+            </div>
+          `;
+          document.getElementById("content").innerHTML = html;
+          document.getElementById("content").style.display = 'block';
+          document.getElementById("loading").style.display = 'none';
+        })
+        .catch(error => {
+          console.error("Error:", error);
+          document.getElementById("loading").style.display = 'none';
+          document.getElementById("errorNotice").style.display = 'block';
+        });
+    });
+  </script>
+</body>
+</html>
