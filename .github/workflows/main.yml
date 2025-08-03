@@ -20,6 +20,9 @@ jobs:
 
       - run: python scripts/get_liturgia.py
 
+      - name: Verificar archivo de Python
+        run: ls -l scripts/
+
       - run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
