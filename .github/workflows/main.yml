@@ -2,7 +2,7 @@ name: Actualizar Liturgia Diario
 
 on:
   schedule:
-    - cron: '0 6 * * *'
+    - cron: '0 6 * * *'  # Ejecuta a las 6 AM UTC
   workflow_dispatch:
 
 jobs:
@@ -10,12 +10,12 @@ jobs:
     runs-on: ubuntu-latest
     
     permissions:
-      contents: write  # Necesario para hacer git push
+      contents: write
     
     steps:
       - uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # Necesario para hacer git push
+          fetch-depth: 0
 
       - uses: actions/setup-python@v4
         with:
@@ -27,9 +27,9 @@ jobs:
 
       - name: Commit and push changes
         run: |
-                git config user.name "github-actions[bot]"
-                git config user.email "github-actions[bot]@users.noreply.github.com"
-                git pull --rebase origin main  # Primero actualiza el repositorio local
-                git add liturgia.json
-                git commit -m "Actualización automática diaria" || echo "No hay cambios para commitear"
-                git push origin main
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin main
+          git add liturgia.json
+          git commit -m "Actualización automática diaria" || echo "No hay cambios para commitear"
+          git push origin main
