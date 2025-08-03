@@ -8,44 +8,96 @@ on:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    
+    timeout-minutes: 15
+    concurrency:
+      group: liturgia-update
+      cancel-in-progress: true  # Evita ejecuciones simultáneas
+
     permissions:
       contents: write
-    
+
     steps:
+      # Paso 1: Checkout del repositorio
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+          ref: main
+
+      # Paso 2: Configurar Python
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
-          # cache: 'pip'  # Opcional: descomentar si añades requirements.txt
-      
+          cache: 'pip'  # Requiere requirements.txt
+
+      # Paso 3: Instalar dependencias
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4
-      
+
+      # Paso 4: Ejecutar el scraper
       - name: Run scraper
         id: scraper
-        run: python scripts/get_liturgia.py
+        run: |
+          python scripts/get_liturgia.py
+          echo "scraper_status=$?" >> $GITHUB_OUTPUT
         continue-on-error: true
-      
+
+      # Paso 5: Verificar resultado
       - name: Verify result
         run: |
           cat liturgia.json
           echo "URL utilizada: https://www.vaticannews.va/es/evangelio-de-hoy/$(date +'%Y/%m/%d').html"
-      
-      - name: Commit and push
-        if: always()
+
+      # Paso 6: Manejo de cambios (robusto)
+      - name: Handle git changes
+        id: git-ops
         run: |
+          # Configurar git
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Obtener últimos cambios del remoto
+          git pull origin main --rebase --autostash
+
+          # Verificar cambios reales en liturgia.json
           git add liturgia.json
-          git commit -m "Actualización automática diaria" || exit 0
-          git pull --rebase
+          if git diff-index --quiet HEAD --; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No hay cambios para confirmar"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            git commit -m "Actualización automática diaria [skip ci]"
+          fi
+
+      # Paso 7: Push de cambios (solo si existen)
+      - name: Push changes
+        if: steps.git-ops.outputs.has_changes == 'true'
+        run: |
+          git pull origin main --rebase
           git push origin main
+          echo "Cambios subidos exitosamente"
+
+      # Paso 8: Manejo de errores
+      - name: Create issue if failed
+        if: failure() || steps.scraper.outputs.scraper_status == '1'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            try {
+              const data = fs.readFileSync('liturgia.json', 'utf8');
+              const errorData = JSON.parse(data);
+              
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `⚠️ Fallo en actualización litúrgica - ${new Date().toISOString()}`,
+                body: `Error detectado:\n\n\`\`\`json\n${JSON.stringify(errorData, null, 2)}\n\`\`\`\n\nConsulta el workflow: ${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`,
+                labels: ['bug', 'automation']
+              });
+            } catch (error) {
+              console.error('Error al crear issue:', error);
+            }
