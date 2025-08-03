@@ -27,8 +27,9 @@ jobs:
 
       - name: Commit and push changes
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add liturgia.json
-          git commit -m "Actualización automática diaria" || echo "No hay cambios para commitear"
-          git push
+                git config user.name "github-actions[bot]"
+                git config user.email "github-actions[bot]@users.noreply.github.com"
+                git pull --rebase origin main  # Primero actualiza el repositorio local
+                git add liturgia.json
+                git commit -m "Actualización automática diaria" || echo "No hay cambios para commitear"
+                git push origin main
